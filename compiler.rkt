@@ -168,12 +168,30 @@
     [(X86Program info body)
      (X86Program info (for/list ([blk body])
                         (match blk
-                          [`(,label . ,block) (label . (patch_block block))])))]
-    [(CProgram info body) (error "not handled" p)]))
+                          [`(,label . ,block) (label . (patch_block block))])))]))
 
 ;; prelude-and-conclusion : x86 -> x86
 (define (prelude-and-conclusion p)
-  (error "TODO: code goes here (prelude-and-conclusion)"))
+  (match p
+    [(X86Program info body)
+     (define main-block (list (cons 'main (Block '()
+                                                (list
+                                                 (Instr 'pushq (list (Reg 'rbp)))
+                                                 (Instr 'movq (list (Reg 'rsp) (Reg 'rbp)))
+                                                 (Instr 'subq (list (Imm 16) (Reg 'rsp)))
+                                                 (Jmp 'start))))))
+     (define conc-block (list (cons 'conclusion (Block '()
+                                                (list
+                                                 (Instr 'addq (list (Imm 16) (Reg 'rsp)))
+                                                 (Instr 'popq (list (Reg 'rbp))) 
+                                                 (Retq))))))
+     (define program (append main-block body conc-block))
+     (cond
+       [(equal? (system-type 'os) 'macosx)
+        (for/list ([blk program])
+          (match blk
+            [`(,label . ,block) (cons (string->symbol (string-append "_" (symbol->string label))) block)]))]
+       [else program])]))
 
 ;; Define the compiler passes to be used by interp-tests and the grader
 ;; Note that your compiler file (the file that defines the passes)
@@ -187,6 +205,6 @@
      ;; ("instruction selection" ,select-instructions ,interp-x86-0)
      ;; ("assign homes" ,assign-homes ,interp-x86-0)
      ("patch instructions" ,patch-instructions ,interp-x86-0)
-     ;; ("prelude-and-conclusion" ,prelude-and-conclusion ,interp-x86-0)
+     ("prelude-and-conclusion" ,prelude-and-conclusion ,interp-x86-0)
      ))
 
